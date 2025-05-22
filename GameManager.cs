@@ -7,26 +7,54 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using Unity.Collections;
+using UnityEngine.EventSystems;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager _Instance;
 
+    public LayerMask _UseInventoryLayerMask;
     public GameObject _MainCamera { get; private set; }
     public CinemachineCamera _CinemachineCamera { get; private set; }
     public GameObject _StopScreen { get; private set; }
     public GameObject _InGameScreen { get; private set; }
     public GameObject _OptionsScreen { get; private set; }
-    public GameObject _LoadingObject { get; private set; }
+    public GameObject _InventoryScreen { get; private set; }
+    public GameObject _OtherInventoryScreen { get; private set; }
+    public GameObject _BookScreen { get; private set; }
+    public GameObject _LoadingScreen { get; private set; }
+    public GameObject _HoldingItemUI { get; private set; }
 
     public InputActionAsset _InputActions;
 
-    public Dictionary<ulong, GameObject> _Players { get; private set; }//ulong is network object id
+    private Dictionary<ulong, GameObject> _players;
+    public Dictionary<ulong, GameObject> _Players { get { if (_players.Count == 0) SetPlayersFromConnection(); return _players; } private set { _players = value; } }//ulong is client id
+
     public List<GameObject> _AllNetworkPrefabs;
     public List<Item> _AllItems;
+    public List<Sprite> _AllItemIcons;
+    public Sprite _ItemBackgroundIcon;
+    public Sprite _HandsBackgroundIcon;
+    public Sprite _ThrowableBackgroundIcon;
+    public Sprite _RingBackgroundIcon;
+    public Sprite _HeadGearBackgroundIcon;
+    public Sprite _BodyGearBackgroundIcon;
+    public Sprite _LegsGearBackgroundIcon;
+
+    public List<GameObject> _AllStaticInventories;
 
     public bool _IsGameStopped { get; private set; }
+    public bool _IsGameLoading { get; set; }
     public int _LevelIndex { get; private set; }
+    public int _LastLoadedGameIndex { get; set; }
+
+    public ulong _OtherInventoryObjectID { get; private set; }
+
+    public GraphicRaycaster _Raycaster { get; set; }
+    public PointerEventData _PointerEventData { get; set; }
+    public EventSystem _EventSystem { get; set; }
+
     private Coroutine _slowTimeCoroutine;
 
     private void Awake()
@@ -35,24 +63,63 @@ public class GameManager : MonoBehaviour
         _Instance = this;
         _MainCamera = Camera.main.gameObject;
         _CinemachineCamera = FindAnyObjectByType<CinemachineCamera>();
-        //Application.targetFrameRate = 60;
+        //Application.targetFrameRate = 30;
         _OptionsScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("Options").gameObject;
-        _LoadingObject = GameObject.FindGameObjectWithTag("UI").transform.Find("Loading").gameObject;
+        _LoadingScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("Loading").gameObject;
 
         _LevelIndex = SceneManager.GetActiveScene().buildIndex;
         if (_LevelIndex != 0)
         {
             _StopScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("StopScreen").gameObject;
             _InGameScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").gameObject;
+            _BookScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("BookScreen").gameObject;
+            _InventoryScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("OwnInventory").gameObject;
+            _OtherInventoryScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("OtherInventory").gameObject;
+            _HoldingItemUI= GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("HoldingItemUI").gameObject;
+            _Raycaster = GameObject.Find("UI").GetComponent<GraphicRaycaster>();
+            _EventSystem = FindFirstObjectByType<EventSystem>();
+            //SaveSystemHandler.LoadGame(index)
         }
-        GameManager._Instance._Players = new Dictionary<ulong, GameObject>();
-        InitAllItems();
+        _Players = new Dictionary<ulong, GameObject>();
+        _AllStaticInventories = new List<GameObject>();
     }
 
+    private void Testing()
+    {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsHost && !NetworkManager.Singleton.IsClient && Input.GetKeyDown(KeyCode.F1))
+        {
+            NetworkManager.Singleton.StartHost();
+        }
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsHost && !NetworkManager.Singleton.IsClient && Input.GetKeyDown(KeyCode.F2))
+        {
+            NetworkManager.Singleton.StartClient();
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[2].Copy());
+        }
+        if (Input.GetKeyDown(KeyCode.Y))
+        {
+            NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[0].Copy());
+        }
+
+        if (Input.GetKeyDown(KeyCode.L)) { SaveSystemHandler.LoadGame(0); }
+        if (Input.GetKeyDown(KeyCode.K)) { SaveSystemHandler.SaveGame(0); }
+
+    }
     private void Update()
     {
-        //if (Input.GetKeyDown(KeyCode.H)) { FindObjectOfType<Humanoid>()._Inventory.DropItem(AllNetworkPrefabs[0], FindObjectOfType<Humanoid>().transform.position, 3); }
-        if (Input.GetKeyDown(KeyCode.H)) { SaveSystemHandler.LoadGame(0); }
+        Testing();
+
+        if (_InputActions.FindAction("Inventory").triggered && _LevelIndex != 0 && !_IsGameStopped)
+        {
+            OpenOrCloseInventoryScreen(!_InventoryScreen.activeInHierarchy);
+        }
+        else if (_InputActions.FindAction("Book").triggered && _LevelIndex != 0 && !_IsGameStopped)
+        {
+            OpenOrCloseBookScreen(!_BookScreen.activeInHierarchy);
+        }
 
         if (_InputActions.FindAction("Cancel").triggered)
         {
@@ -65,11 +132,21 @@ public class GameManager : MonoBehaviour
                     else if (_StopScreen.activeInHierarchy)
                         UnstopGame();
                     else
-                        StopGame(false, false);
+                        StopGame();
                 }
                 else
                 {
-                    StopGame(false, false);
+                    if (_BookScreen.activeInHierarchy)
+                        OpenOrCloseBookScreen(false);
+                    else if (_OtherInventoryScreen.activeInHierarchy)
+                    {
+                        OpenOrCloseOtherInventoryScreen(false, null);
+                        OpenOrCloseInventoryScreen(false);
+                    }
+                    else if (_InventoryScreen.activeInHierarchy)
+                        OpenOrCloseInventoryScreen(false);
+                    else
+                        StopGame();
                 }
             }
             else
@@ -80,12 +157,27 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void InitAllItems()
+
+
+    public void SetPlayersFromConnection()
     {
-        _AllItems = new List<Item>();
-        _AllItems.Add(new FoodItem(5, "Apple", null));
-        _AllItems.Add(new FoodItem(15, "Bread", null));
+        _players.Clear();
+        var playerObjects = GameObject.FindGameObjectsWithTag("Player");
+        foreach (var id in NetworkMethods._Instance.NetworkManager.ConnectedClientsIds)
+        {
+            foreach (var player in playerObjects)
+            {
+                if (player.GetComponent<NetworkObject>().OwnerClientId == id)
+                {
+                    if (!_players.ContainsKey(player.GetComponent<NetworkObject>().OwnerClientId))
+                        _players.Add(player.GetComponent<NetworkObject>().OwnerClientId, player);
+                    continue;
+                }
+            }
+        }
     }
+
+
     #region CommonMethods
 
     public T GetRandomFromList<T>(List<T> list)
@@ -190,38 +282,22 @@ public class GameManager : MonoBehaviour
             coroutineHolderScript.StopCoroutine(coroutine);
     }
     #endregion
-    
-    /*public void LoadSceneAsync(int index)
-    {
-        if (_LoadingObject.activeInHierarchy) return;
-
-        _LoadingObject.SetActive(true);
-        CallForAction(() => SceneManager.LoadSceneAsync(index), 0.1f, true);
-    }
 
 
-    public void ToMenu()
-    {
-        if (SoundManager._Instance._CurrentMusicObject != null)
-        {
-            Destroy(SoundManager._Instance._CurrentMusicObject);
-        }
-        if (SoundManager._Instance._CurrentAtmosphereObject != null)
-        {
-            Destroy(SoundManager._Instance._CurrentAtmosphereObject);
-        }
-        CallForAction(() => LoadSceneAsync(0), 0.25f, true);
-    }*/
     public void QuitGame()
     {
         Application.Quit();
     }
 
 
-    private void StopGame(bool isOpeningMap, bool isPausing)
+    public void StopGame(bool isStopScreen = true)
     {
-        _StopScreen.SetActive(true);
-        _InGameScreen.SetActive(false);
+        if (isStopScreen)
+        {
+            _StopScreen.SetActive(true);
+            _InGameScreen.SetActive(false);
+        }
+
         Time.timeScale = 0f;
         _IsGameStopped = true;
         SoundManager._Instance.PauseAllSound();
@@ -266,7 +342,165 @@ public class GameManager : MonoBehaviour
                 GameObject.FindGameObjectWithTag("UI").transform.Find("StopScreen").gameObject.SetActive(true);
         }
     }
+    public void OpenOrCloseBookScreen(bool isOpening)
+    {
+        _BookScreen.SetActive(isOpening);
+    }
 
+
+    public Sprite GetItemSprite(Item item)
+    {
+        int index = NetworkMethods._Instance.GetIndexByItem(item);
+        return GameManager._Instance._AllItemIcons[index];
+    }
+
+    public bool CheckInventoryUpdate(Inventory inventory)
+    {
+        if (_InventoryScreen.activeInHierarchy && inventory.GetComponent<PlayerNetworking>() != null && inventory.GetComponent<PlayerNetworking>().IsOwner)
+        {
+            UpdateInventoryScreen(true, inventory);
+        }
+        if (_OtherInventoryScreen.activeInHierarchy && inventory.NetworkObjectId == _OtherInventoryObjectID)
+        {
+            UpdateInventoryScreen(false, inventory);
+        }
+        return false;
+    }
+    public void OpenOrCloseInventoryScreen(bool isOpening)
+    {
+        if (isOpening)
+        {
+            UpdateInventoryScreen(true, NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>());
+        }
+
+        _InventoryScreen.SetActive(isOpening);
+    }
+
+    public void OpenOrCloseOtherInventoryScreen(bool isOpening, Inventory inventory)
+    {
+        if (isOpening)
+        {
+            OpenOrCloseInventoryScreen(true);
+            UpdateInventoryScreen(false, inventory);
+        }
+        else
+        {
+            Transform slots = _OtherInventoryScreen.transform.Find("InventorySlots");
+            for (int i = 0; i < slots.childCount; i++)
+            {
+                Transform child = slots.GetChild(i);
+                child.GetComponent<InventoryUISlot>()._Inventory = null;
+            }
+        }
+
+        _OtherInventoryScreen.SetActive(isOpening);
+    }
+    public void CloseOtherInventoryFromUI()
+    {
+        OpenOrCloseOtherInventoryScreen(false, null);
+    }
+    public void UpdateInventoryScreen(bool isOwnInventory, Inventory inventory)
+    {
+        if (isOwnInventory)
+        {
+            UpdateInventorySlots(inventory, _InventoryScreen.transform.Find("InventorySlots"));
+            UpdateEquipmentSlots(inventory);
+        }
+        else
+        {
+            _OtherInventoryObjectID = inventory.NetworkObjectId;
+            UpdateInventorySlots(inventory, _OtherInventoryScreen.transform.Find("InventorySlots"));
+        }
+        NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateHoldingSprite();
+    }
+    private void UpdateInventorySlots(Inventory inventory, Transform inventoryScreen)
+    {
+        for (int i = 0; i < inventoryScreen.childCount; i++)
+        {
+            Transform child = inventoryScreen.GetChild(i);
+            UpdateSlotsCommon(inventory, child, i, false);
+        }
+    }
+    private void UpdateEquipmentSlots(Inventory inventory)
+    {
+        Transform slots = _InventoryScreen.transform.Find("EquipmentSlots");
+        for (int i = 3; i < slots.childCount + 3; i++)
+        {
+            Transform child = slots.GetChild(i - 3);
+            UpdateSlotsCommon(inventory, child, i, true);
+        }
+
+        slots = _InventoryScreen.transform.Find("ArmorSlots");
+        for (int i = 0; i < 3; i++)
+        {
+            Transform child = slots.GetChild(i);
+            UpdateSlotsCommon(inventory, child, i, true);
+        }
+    }
+    private void UpdateSlotsCommon(Inventory inventory, Transform child, int i, bool isEquipments)
+    {
+        Item[] tempArray = isEquipments ? inventory._Equipments : inventory._Items;
+        if (tempArray[i] == null)
+        {
+            child.GetComponent<Image>().sprite = isEquipments ? GetBackgroundIcon(i) : _ItemBackgroundIcon;
+            child.Find("CountText").gameObject.SetActive(false);
+            child.Find("WeaponUI").gameObject.SetActive(false);
+            child.Find("ArmorLevelText").gameObject.SetActive(false);
+        }
+        else
+        {
+            child.GetComponent<Image>().sprite = GetItemSprite(tempArray[i]);
+
+            if (tempArray[i].IsUniqueItemType())
+                child.Find("CountText").gameObject.SetActive(false);
+            else
+                child.Find("CountText").gameObject.SetActive(true);
+
+            if (tempArray[i]._ItemType == ItemType.HandItem)
+                child.Find("WeaponUI").gameObject.SetActive(true);
+            else
+                child.Find("WeaponUI").gameObject.SetActive(false);
+
+            if (tempArray[i]._ItemType == ItemType.HeadGearItem || tempArray[i]._ItemType == ItemType.BodyGearItem || tempArray[i]._ItemType == ItemType.LegsGearItem)
+                child.Find("ArmorLevelText").gameObject.SetActive(true);
+            else
+                child.Find("ArmorLevelText").gameObject.SetActive(false);
+        }
+
+        child.GetComponent<InventoryUISlot>()._Inventory = inventory;
+        child.GetComponent<InventoryUISlot>()._IsEquipmentSlot = isEquipments;
+        child.GetComponent<InventoryUISlot>()._Index = i;
+
+        child.GetComponent<InventoryUISlot>().OnUpdate();
+    }
+    private Sprite GetBackgroundIcon(int index)
+    {
+        switch (index)
+        {
+            case 0:
+                return _HeadGearBackgroundIcon;
+            case 1:
+                return _BodyGearBackgroundIcon;
+            case 2:
+                return _LegsGearBackgroundIcon;
+            case 3:
+            case 4:
+                return _HandsBackgroundIcon;
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+                return _ThrowableBackgroundIcon;
+            case 9:
+            case 10:
+            case 11:
+            case 12:
+                return _RingBackgroundIcon;
+            default:
+                Debug.LogError("Item background not found!");
+                return null;
+        }
+    }
 
     public void Slowtime(float time)
     {

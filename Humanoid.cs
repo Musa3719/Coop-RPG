@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Networking;
 
 [RequireComponent(typeof(LocomotionSystem))]
 public class Humanoid : MonoBehaviour
@@ -8,7 +9,7 @@ public class Humanoid : MonoBehaviour
    public Animator _Animator { get; private set; }
    public NetworkObject _NetworkObjComponent { get; private set; }
    public LocomotionSystem _LocSystem { get; private set; }
-   public InputsAndPlayerNetworking _LocSystemInput { get; private set; }
+   public PlayerInputHandler _LocSystemInput { get; private set; }
 
    public MovementStates _MovementState { get; private set; }
    public ActionStates _ActionState { get; private set; }
@@ -21,7 +22,7 @@ public class Humanoid : MonoBehaviour
         _Animator = GetComponent<Animator>();
         _NetworkObjComponent = GetComponent<NetworkObject>();
         _LocSystem = GetComponent<LocomotionSystem>();
-        _LocSystemInput = GetComponent<InputsAndPlayerNetworking>();
+        _LocSystemInput = GetComponent<PlayerInputHandler>();
 
         InitStates();
 
@@ -35,16 +36,22 @@ public class Humanoid : MonoBehaviour
 
     private void Update()
     {
+        if (!_NetworkObjComponent.IsOwner || GameManager._Instance._IsGameStopped || GameManager._Instance._IsGameLoading) return;
+
         _MovementState.DoStateUpdate();
         _ActionState.DoStateUpdate();
     }
     private void FixedUpdate()
     {
+        if (!_NetworkObjComponent.IsOwner || GameManager._Instance._IsGameStopped || GameManager._Instance._IsGameLoading) return;
+
         _MovementState.DoStateFixedUpdate();
         _ActionState.DoStateFixedUpdate();
     }
     private void LateUpdate()
     {
+        if (!_NetworkObjComponent.IsOwner || GameManager._Instance._IsGameStopped || GameManager._Instance._IsGameLoading) return;
+
         _MovementState.DoStateLateUpdate();
         _ActionState.DoStateLateUpdate();
     }

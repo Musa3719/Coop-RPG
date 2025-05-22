@@ -9,6 +9,8 @@ public class LocomotionSystem : MonoBehaviour
     private float _stopAimCounterMax = 0.3f;
     private Coroutine _rotateAroundCoroutine;
 
+    public float _MovementSpeedMultiplier { get; set; }
+
     public virtual void ControlAnimatorRootMotion()
     {
         if (!this.enabled) return;
@@ -86,8 +88,8 @@ public class LocomotionSystem : MonoBehaviour
 
     public virtual void Sprint(bool value)
     {
-        var sprintConditions = (input.sqrMagnitude > 0.1f && isGrounded && !isStrafing &&
-            !(isStrafing && !strafeSpeed.walkByDefault && (horizontalSpeed >= 0.5 || horizontalSpeed <= -0.5 || verticalSpeed <= 0.1f)));
+        var sprintConditions = input.sqrMagnitude > 0.1f && isGrounded && !isStrafing;
+            //&& !(isStrafing && !strafeSpeed.walkByDefault && (horizontalSpeed >= 0.5 || horizontalSpeed <= -0.5 || verticalSpeed <= 0.1f)));
 
         if (value && sprintConditions)
         {
@@ -254,6 +256,7 @@ public class LocomotionSystem : MonoBehaviour
             inputMagnitude = Mathf.Clamp(newInput.magnitude, 0, isSprinting ? runningSpeed : walkSpeed);
         else
             inputMagnitude = Mathf.Clamp(isSprinting ? newInput.magnitude + 0.5f : newInput.magnitude, 0, isSprinting ? sprintSpeed : runningSpeed);
+        inputMagnitude *= _MovementSpeedMultiplier;
     }
 
     #region Inspector Variables
@@ -414,6 +417,7 @@ public class LocomotionSystem : MonoBehaviour
             moveSpeed = Mathf.Lerp(moveSpeed, isSprinting ? speed.runningSpeed : speed.walkSpeed, speed.movementSmooth * Time.deltaTime);
         else
             moveSpeed = Mathf.Lerp(moveSpeed, isSprinting ? speed.sprintSpeed : speed.runningSpeed, speed.movementSmooth * Time.deltaTime);
+        moveSpeed *= _MovementSpeedMultiplier;
     }
 
     public virtual void MoveCharacter(Vector3 _direction)
@@ -428,6 +432,13 @@ public class LocomotionSystem : MonoBehaviour
         // limit the input
         if (_direction.magnitude > 1f)
             _direction.Normalize();
+
+        if (!isStrafing)
+        {
+            float angle = Vector2.Angle(new Vector2(transform.forward.x, transform.forward.z), new Vector2(_direction.x, _direction.z));
+            float directionMultiplier = angle > 120f ? 0.2f : (angle > 90f ? 0.4f : (angle > 90 ? 0.7f : (angle > 60 ? 0.9f : 1f)));
+            _direction = _direction * directionMultiplier; //new code for waiting while rotating around
+        }
 
         Vector3 targetPosition = (useRootMotion ? animator.rootPosition : _rigidbody.position) + _direction * (stopMove ? 0 : moveSpeed) * Time.deltaTime;
         Vector3 targetVelocity = (targetPosition - transform.position) / Time.deltaTime;

@@ -56,12 +56,14 @@ public class LocomotionState : MovementStates
         }*/
 
         //input handlers
+        _human._LocSystemInput.ArrangeOtherInventory();
+        _human._LocSystemInput.CheckInventoryActivity();
         _human._LocSystemInput.MoveInput();
         _human._LocSystemInput.CameraInput();
         _human._LocSystemInput.SprintInput();
         _human._LocSystemInput.StrafeInput();
         _human._LocSystemInput.JumpInput();
-        _human._LocSystemInput.LeanInput();
+        _human._LocSystemInput.CameraRotateInput();
 
         _human._LocSystem.UpdateAnimator();
 
