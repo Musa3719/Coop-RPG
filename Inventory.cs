@@ -43,7 +43,7 @@ public class Inventory : NetworkBehaviour
     }
     private void Update()
     {
-        if (!IsServer) return;
+        if (!NetworkController._Instance.IsServer) return;
 
         if (name.StartsWith("Pocket") && _Items.Count() == 0)
         {
@@ -54,7 +54,7 @@ public class Inventory : NetworkBehaviour
             }
             if (_destroyCounter > 12f)
             {
-                NetworkMethods._Instance.DespawnObject(gameObject);
+                NetworkController._Instance.DespawnObject(gameObject);
             }
         }
         else if (_isAboutToBeDestroyed)
@@ -69,6 +69,8 @@ public class Inventory : NetworkBehaviour
     }
     public override void OnNetworkSpawn()
     {
+        //if (GetComponent<Humanoid>() == null) Destroy(gameObject);
+        GameManager._Instance.CheckInventoryUpdate(this);
         if (GetComponent<Humanoid>() == null)
         {
             if (!GameManager._Instance._AllStaticInventories.Contains(gameObject))
@@ -85,6 +87,7 @@ public class Inventory : NetworkBehaviour
 
     }
 
+
     public void OpenOrCloseUseUI(bool isOpen)
     {
         transform.Find("Canvas").gameObject.SetActive(isOpen);
@@ -97,51 +100,63 @@ public class Inventory : NetworkBehaviour
     }
 
 
-    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
-    public void CreateWorldInstanceForItemRpc(int worldInstanceIndex, int equipIndex, ulong inventoryIndex)
+    public void CreateWorldInstanceForItem(int worldInstanceIndex, int equipIndex, ulong inventoryIndex)
     {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("Create called in client!!");
+            return;
+        }
+
+        if (worldInstanceIndex == -1) return;
+
         GameObject obj = MonoBehaviour.Instantiate(GameManager._Instance._AllNetworkPrefabs[worldInstanceIndex]);
         obj.GetComponent<NetworkObject>().Spawn();
 
-        DestroyWorldInstanceForItemRpc(equipIndex, inventoryIndex);
+        DestroyWorldInstanceForItem(equipIndex, inventoryIndex);
         switch (equipIndex)
         {
             case 0:
-                NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
+                NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
                 break;
             case 1:
-                NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
+                NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
                 break;
             case 2:
-                NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
+                NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
                 break;
             case 3:
-                NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
+                NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value = obj.GetComponent<NetworkObject>().NetworkObjectId;
                 break;
             default:
                 break;
         }
     }
-    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
-    public void DestroyWorldInstanceForItemRpc(int equippedToIndex, ulong inventoryIndex)
+    public void DestroyWorldInstanceForItem(int equippedToIndex, ulong inventoryIndex)
     {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("Destroy called in client!!");
+            return;
+        }
+
         switch (equippedToIndex)
         {
             case 0:
-                if (NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value) != null)
-                    NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
+                if (NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value) != null)
+                    NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HeadGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
                 break;
             case 1:
-                if (NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value) != null)
-                    NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
+                if (NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value) != null)
+                    NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._BodyGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
                 break;
             case 2:
-                if (NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value) != null)
-                    NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
+                if (NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value) != null)
+                    NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._LegsGearWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
                 break;
             case 3:
-                if (NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value) != null)
-                    NetworkMethods._Instance.GetObjectFromNetworkID(NetworkMethods._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
+                if (NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value) != null)
+                    NetworkController._Instance.GetObjectFromNetworkID(NetworkController._Instance.GetObjectFromNetworkID(inventoryIndex).GetComponent<Inventory>()._HandsItemWorldInstanceID.Value).GetComponent<NetworkObject>().Despawn();
                 break;
             default:
                 break;
@@ -150,6 +165,12 @@ public class Inventory : NetworkBehaviour
 
     public void SyncInventory(ulong clientID = 1, bool isSendingToClientID = false, bool isFromLoadGameMethod = false)
     {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("Sync Called From Client!");
+            return;
+        }
+
         float senderTime = Time.realtimeSinceStartup;
 
         for (int i = 0; i < _Items.Length; i++)
@@ -163,7 +184,7 @@ public class Inventory : NetworkBehaviour
             if (_Items[i].IsUniqueItemType())
                 SyncInventoryRpc(i, _Items[i], _Items[i]._Count, senderTime, -1, isSendingToClientID, clientID);
             else
-                SyncInventoryRpc(i, NetworkMethods._Instance.GetIndexByItem(_Items[i]), _Items[i]._IsEquipped, _Items[i]._Count, senderTime, -1, isSendingToClientID, clientID);
+                SyncInventoryRpc(i, NetworkController._Instance.GetIndexByItem(_Items[i]), _Items[i]._IsEquipped, _Items[i]._Count, senderTime, -1, isSendingToClientID, clientID);
         }
 
         for (int i = 0; i < _Equipments.Length; i++)
@@ -178,11 +199,18 @@ public class Inventory : NetworkBehaviour
             if (item.IsUniqueItemType())
                 SyncInventoryRpc(i, item, item._Count, senderTime, i, isSendingToClientID, clientID);
             else
-                SyncInventoryRpc(i, NetworkMethods._Instance.GetIndexByItem(item), item._IsEquipped, item._Count, senderTime, -1, isSendingToClientID, clientID);
+                SyncInventoryRpc(i, NetworkController._Instance.GetIndexByItem(item), item._IsEquipped, item._Count, senderTime, -1, isSendingToClientID, clientID);
 
             if (isFromLoadGameMethod && !isSendingToClientID)
-                CreateWorldInstanceForItemRpc(item._WorldInstanceIndex, i, GetComponent<NetworkObject>().NetworkObjectId);
+                CreateWorldInstanceForItem(item._WorldInstanceIndex, i, GetComponent<NetworkObject>().NetworkObjectId);
         }
+
+        CheckForInventoryUpdateRpc();
+    }
+    [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
+    private void CheckForInventoryUpdateRpc()
+    {
+        GameManager._Instance.CheckInventoryUpdate(this);
     }
 
     [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
@@ -209,7 +237,7 @@ public class Inventory : NetworkBehaviour
     [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
     private void SyncInventoryRpc(int i, int itemIndex, bool isEquipped, int count, float senderTime, int equipIndex = -1, bool isSendingToClientID = false, ulong clientID = 1)
     {
-        Item item = NetworkMethods._Instance.GetNewItemByIndex(itemIndex, count);
+        Item item = NetworkController._Instance.GetNewItemByIndex(itemIndex, count);
         item._IsEquipped = isEquipped;
         SyncInventoryCommon(i, item, senderTime, equipIndex, isSendingToClientID, clientID);
     }
@@ -242,6 +270,12 @@ public class Inventory : NetworkBehaviour
 
     public void GainItem(Item item, int gainCount, int index, bool isSync = true)
     {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("Gain Called From Client!");
+            return;
+        }
+
         if (!CanTakeThisItem(item)) return;
 
         item._Count = gainCount;
@@ -271,6 +305,12 @@ public class Inventory : NetworkBehaviour
 
     public void LoseItem(Item item, int dropCount, int index, bool isSync = true)
     {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("Lose Called From Client!");
+            return;
+        }
+
         Item foundItem = null;
         if (index == -1)
             foundItem = _Items.FindByName(item._Name);
@@ -294,6 +334,129 @@ public class Inventory : NetworkBehaviour
         GameManager._Instance.CheckInventoryUpdate(this);
     }
 
+    public void ItemToGroundRequestSend(int count, int fromIndex)
+    {
+        ItemToGroundRequestRpc(count, fromIndex, _Items[fromIndex]._Name);
+    }
+
+    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
+    public void ItemToGroundRequestRpc(int count, int fromIndex, string name)
+    {
+        Item item = _Items[fromIndex];
+        if (item != null && item._Name == name)
+            ItemToGround(item, count, fromIndex);
+    }
+    public void ItemToGround(Item item, int count, int fromIndex)
+    {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("IToGround Called From Client!");
+            return;
+        }
+
+        if (item._Count >= count)
+        {
+            LoseItem(item, count, fromIndex);
+            NetworkController._Instance.SpawnPocketWithItem(item, transform.position, count);
+        }
+        else
+            Debug.LogError("count is smaller!");
+
+    }
+
+    public void FromEquipmentToGroundRequestSend(int count, int fromIndex)
+    {
+        FromEquipmentToGroundRequestRpc(count, fromIndex, _Equipments[fromIndex]._Name);
+    }
+
+    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
+    public void FromEquipmentToGroundRequestRpc(int count, int fromIndex, string name)
+    {
+        Item item = _Equipments[fromIndex];
+        if (item != null && item._Name == name)
+            FromEquipmentToGround(item, count, fromIndex);
+    }
+    public void FromEquipmentToGround(Item item, int count, int fromIndex)
+    {
+        if (!NetworkController._Instance.IsServer)
+        {
+            Debug.LogError("EToGround Called From Client!");
+            return;
+        }
+        if (!item._IsEquipped)
+        {
+            Debug.LogError("Item Not Equipped!!");
+            return;
+        }
+
+        NetworkController._Instance.UnEquipRequestSend(item, this, fromIndex, true, false);
+        NetworkController._Instance.SpawnPocketWithItem(item, transform.position, count);
+    }
+
+
+
+    public void TakeItemFromAnotherRequestSend(Item item, Inventory anotherInventory, int count, bool isFromEquipments)
+    {
+        if ((item._IsEquipped && !anotherInventory._Equipments.Contains(item)) || (!item._IsEquipped && !anotherInventory._Items.Contains(item)))
+        {
+            Debug.LogError("request already sent or item does not exist in another inventory");
+            return;
+        }
+
+        int index = item._IsEquipped ? anotherInventory._Equipments.IndexOf(item) : anotherInventory._Items.IndexOf(item);
+        TakeItemFromAnotherRequestRpc(item._Name, index, anotherInventory.NetworkObjectId, count, isFromEquipments);
+    }
+
+    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
+    public void TakeItemFromAnotherRequestRpc(string itemName, int itemIndex, ulong anotherInventoryNetworkID, int count, bool isFromEquipments)
+    {
+        Inventory anotherInventory = NetworkController._Instance.GetObjectFromNetworkID(anotherInventoryNetworkID).GetComponent<Inventory>();
+        Item item = isFromEquipments ? anotherInventory._Equipments[itemIndex] : anotherInventory._Items[itemIndex];
+
+        if (item != null && item._Name == itemName)
+            TakeItemFromAnotherInventory(item, anotherInventory, count, itemIndex, isFromEquipments);
+    }
+
+    private void TakeItemFromAnotherInventory(Item item, Inventory anotherInventory, int count, int fromIndex, bool isFromEquipments)
+    {
+        if (_isAboutToBeDestroyed || anotherInventory == null) return;
+        Item[] lookForArray = item._IsEquipped ? anotherInventory._Equipments : anotherInventory._Items;
+        if (!item.IsUniqueItemType() && (lookForArray.FindByName(item._Name) == null || anotherInventory._Items.FindByName(item._Name)._Count < count)) return;
+        if (item.IsUniqueItemType() && (!lookForArray.Contains(item))) return;
+
+        if (CanTakeThisItem(item))
+            TakeItem(true, item, anotherInventory, count, fromIndex, isFromEquipments);
+        else if (GetComponent<Humanoid>() != null && item.IsEquippableItemType() && GetAvailableEquipmentIndex(item) != -1 && !isFromEquipments)
+            TakeItem(false, item, anotherInventory, count, fromIndex, isFromEquipments);
+    }
+    private void TakeItem(bool canTakeThisItem, Item item, Inventory anotherInventory, int count, int fromIndex, bool isFromEquipments)
+    {
+        if (isFromEquipments)
+            NetworkController._Instance.UnEquipRequestSend(item, anotherInventory, fromIndex, true, false);
+        else
+            anotherInventory.LoseItem(item, count, fromIndex);
+
+        if (canTakeThisItem)
+            GainItem(item, count, -1);
+        else
+            NetworkController._Instance.EquipRequestSend(item, GetComponent<Humanoid>(), anotherInventory, fromIndex);
+    }
+
+    public void TakeItemFromNothing(Item item, int count = 1, bool isSync = true)
+    {
+        if (!NetworkController._Instance.IsServer) return;
+
+        if (_isAboutToBeDestroyed) return;
+
+        GainItem(item, count, -1, isSync);
+    }
+
+    public bool CanTakeThisItem(Item item)
+    {
+        if (!IsFull()) return true;
+        if (!item.IsUniqueItemType() && _Items.FindByName(item._Name) != null) return true;
+        return false;
+    }
     public bool IsEquipped(Item item)
     {
         foreach (var equipment in _Equipments)
@@ -306,94 +469,6 @@ public class Inventory : NetworkBehaviour
     public bool IsFull()
     {
         return _Items.Count() >= _ItemLenghtLimit;
-    }
-
-    public void ItemToGround(Item item, int count, int fromIndex, bool isSync)
-    {
-        if (item.IsUniqueItemType() && item._Count >= count)
-        {
-            LoseItem(item, count, fromIndex, isSync);
-            NetworkMethods._Instance.SpawnPocketWithItemRpc(item, transform.position, count);
-        }
-        else if (_Items.FindByName(item._Name) != null && _Items.FindByName(item._Name)._Count >= count)
-        {
-            LoseItem(item, count, fromIndex, isSync);
-            NetworkMethods._Instance.SpawnPocketWithItemRpc(NetworkMethods._Instance.GetIndexByItem(item), transform.position, count);
-        }
-    }
-    public void FromEquipmentToGround(Item item, int count, int fromIndex, bool isSync)
-    {
-        if (!item._IsEquipped)
-        {
-            Debug.LogError("Item Not Equipped!!");
-            return;
-        }
-        item.UnEquip(this, fromIndex, isSync, false);
-
-        if (item.IsUniqueItemType())
-        {
-            NetworkMethods._Instance.SpawnPocketWithItemRpc(item, transform.position, count);
-        }
-        else if (_Equipments.FindByName(item._Name) != null && _Equipments.FindByName(item._Name)._Count >= count)
-        {
-            NetworkMethods._Instance.SpawnPocketWithItemRpc(NetworkMethods._Instance.GetIndexByItem(item), transform.position, count);
-        }
-    }
-
-
-    public void TakeItemRequestSend(Item item, Inventory anotherInventory, int count)
-    {
-        if (!anotherInventory._Items.Contains(item))
-        {
-            Debug.LogError("request already sent or item does not exist in another inventory");
-            return;
-        }
-
-        TakeItemRequestRpc(item._Name, anotherInventory._Items.IndexOf(item), anotherInventory.NetworkObjectId, count);
-    }
-
-    [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
-    public void TakeItemRequestRpc(string itemName, int itemIndex, ulong anotherInventoryNetworkID, int count)
-    {
-        Inventory anotherInventory = NetworkMethods._Instance.GetObjectFromNetworkID(anotherInventoryNetworkID).GetComponent<Inventory>();
-        Item item = anotherInventory._Items[itemIndex];
-
-        if (item != null && item._Name == itemName)
-            TakeItemFromAnotherInventory(item, anotherInventory, count, itemIndex);
-    }
-
-    private void TakeItemFromAnotherInventory(Item item, Inventory anotherInventory, int count, int fromIndex)
-    {
-        if (_isAboutToBeDestroyed || anotherInventory == null) return;
-        if (!item.IsUniqueItemType() && (anotherInventory._Items.FindByName(item._Name) == null || anotherInventory._Items.FindByName(item._Name)._Count < count)) return;
-        if (item.IsUniqueItemType() && !anotherInventory._Items.Contains(item)) return;
-
-
-        if (GetComponent<Humanoid>() != null && item.IsEquippableItemType() && GetAvailableEquipmentIndex(item) != -1)
-            item.Equip(GetComponent<Humanoid>(), anotherInventory, fromIndex);
-        else if (CanTakeThisItem(item))
-        {
-            anotherInventory.LoseItem(item, count, fromIndex);
-            GainItem(item, count, -1);
-        }
-    }
-    public void TakeItemFromNothing(Item item, int count = 1, bool isSync = true)
-    {
-        if (_isAboutToBeDestroyed) return;
-
-        GainItem(item, count, -1, isSync);
-    }
-    public bool CanTakeThisItem(Item item)
-    {
-        if (!IsFull()) return true;
-        if (!item.IsUniqueItemType() && _Items.FindByName(item._Name) != null) return true;
-        return false;
-    }
-    public void UseItem(Humanoid userHuman, Item item)
-    {
-        if (_Items.FindByName(item._Name) == null && !_Equipments.Contains(item)) return;
-
-        item.Interact(userHuman, this);
     }
 
     public int GetAvailableEquipmentIndex(Item item)

@@ -27,13 +27,14 @@ public static class ExtensionMethods
         newItem._WorldInstanceIndex = item._WorldInstanceIndex;
         newItem._Level = item._Level;
         newItem._Durability = item._Durability;
+        newItem._MaxDurability = item._MaxDurability;
 
         return newItem;
     }
     public static void Add(this Item[] items, Item item, Inventory inventory, int index)
     {
         if (items == null) return;
-        
+
         if (index == -1)
         {
             for (int i = 0; i < items.Length; i++)
@@ -115,6 +116,35 @@ public static class ExtensionMethods
         }
         return -1;
     }
+    public static bool CanEquipThisItemType(this Inventory inventory, Item item, int equipIndex)
+    {
+        if (inventory == null) return false;
+
+        switch (item._ItemType)
+        {
+            case ItemType.FoodItem:
+                return false;
+            case ItemType.PotionItem:
+                return false;
+            case ItemType.HandItem:
+                return equipIndex == 3 || equipIndex == 4;
+            case ItemType.HeadGearItem:
+                return equipIndex == 0;
+            case ItemType.BodyGearItem:
+                return equipIndex == 1;
+            case ItemType.LegsGearItem:
+                return equipIndex == 2;
+            case ItemType.RingGearItem:
+                return equipIndex == 9 || equipIndex == 10 || equipIndex == 11 || equipIndex == 12;
+            case ItemType.NonInteractableItem:
+                return false;
+            case ItemType.ThrowableItem:
+                return equipIndex == 5 || equipIndex == 6 || equipIndex == 7 || equipIndex == 8;
+            default:
+                Debug.LogError("Item type not found!");
+                return false;
+        }
+    }
     public static bool Contains(this Item[] itemArray, Item lookingItem)
     {
         if (itemArray == null) return false;
@@ -144,8 +174,18 @@ public static class ExtensionMethods
 
         for (int i = 0; i < items.Length; i++)
         {
-            if (items[i]._Name == "") items[i] = null;
+            if (items[i]._Name == "" || items[i]._Name == null) items[i] = null;
         }
+    }
+    public static T[] CopyArray<T>(this T[] array)
+    {
+        if (array == null) return null;
+        T[] newArray = new T[array.Length];
+        for (int i = 0; i < array.Length; i++)
+        {
+            newArray[i] = array[i];
+        }
+        return newArray;
     }
     public static void Clear(this Item[] itemArray)
     {
@@ -156,13 +196,24 @@ public static class ExtensionMethods
             itemArray[i] = null;
         }
     }
-    public static PlayerData GetPlayerData(this List<PlayerData> data, ulong id)
+    public static PlayerData GetPlayerData(this List<PlayerData> data, int id)
     {
         foreach (var item in data)
         {
             if (item._NetworkID == id) return item;
         }
         return null;
+    }
+    public static int GetIDFromClientID(this Dictionary<int, ulong> dict, ulong clientID)
+    {
+        if (dict == null) return -1;
+
+        foreach (var id in dict)
+        {
+            if (id.Value == clientID)
+                return id.Key;
+        }
+        return -1;
     }
 
     #endregion

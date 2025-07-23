@@ -33,7 +33,18 @@ public class Humanoid : MonoBehaviour
         _MovementState = new LocomotionState(this);
         _ActionState = new NoneActionState(this);
     }
-
+    public void ChangeMovementState(MovementStates newState)
+    {
+        _MovementState.Exit<MovementStates>(newState);
+        newState.Enter<MovementStates>(_MovementState);
+        _MovementState = newState;
+    }
+    public void ChangeActionState(ActionStates newState)
+    {
+        _ActionState.Exit<ActionStates>(newState);
+        newState.Enter<ActionStates>(_ActionState);
+        _ActionState = newState;
+    }
     private void Update()
     {
         if (!_NetworkObjComponent.IsOwner || GameManager._Instance._IsGameStopped || GameManager._Instance._IsGameLoading) return;
@@ -54,5 +65,9 @@ public class Humanoid : MonoBehaviour
 
         _MovementState.DoStateLateUpdate();
         _ActionState.DoStateLateUpdate();
+    }
+    public void CopyHumanData(Humanoid anotherHuman)
+    {
+        //copy from another human
     }
 }

@@ -67,11 +67,6 @@ public class LocomotionState : MovementStates
 
         _human._LocSystem.UpdateAnimator();
 
-
-        /*LocomotionSystem.UpdateMoveDirection(human, GameManager.Instance.MainCamera.transform);
-        LocomotionSystem.CheckJump(human);
-        LocomotionSystem.CheckSprint(human);
-        LocomotionSystem.UpdateAnimator(human);*/
     }
     void IStates.DoStateFixedUpdate()
     {
@@ -81,13 +76,6 @@ public class LocomotionState : MovementStates
         _human._LocSystem.ControlLocomotionType();
         _human._LocSystem.ControlRotationType();
 
-
-        /*LocomotionSystem.CheckGround(human);
-        LocomotionSystem.CheckSlopeLimit(human);
-        LocomotionSystem.ControlJumpBehaviour(human);
-        LocomotionSystem.AirControl(human);
-        LocomotionSystem.ControlLocomotionType(human);     // handle the controller locomotion type and movespeed
-        LocomotionSystem.ControlRotationType(human);       // handle the controller rotation type*/
     }
 
     void IStates.DoStateLateUpdate()
@@ -105,192 +93,7 @@ public class LocomotionState : MovementStates
     }
 
 }
-
-public class UnconsciousState : MovementStates
-{
-    public Humanoid Human => _human;
-
-
-    private Humanoid _human;
-
-    public UnconsciousState(Humanoid human)
-    {
-        this._human = human;
-    }
-    void IStates.Enter<MovementStates>(MovementStates oldState)
-    {
-        
-    }
-
-    void IStates.Exit<MovementStates>(MovementStates newState)
-    {
-        
-    }
-
-    void IStates.DoStateUpdate()
-    {
-        //Check For State Change
-    }
-
-    void IStates.DoStateFixedUpdate()
-    {
-        
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-        
-    }
-}
-
-public class RestingState : MovementStates
-{
-    Humanoid IStates.Human => _human;
-
-    private Humanoid _human;
-    public RestingState(Humanoid human)
-    {
-        this._human = human;
-    }
-    void IStates.Enter<MovementState>(MovementState oldState)
-    {
-
-    }
-
-    void IStates.Exit<MovementState>(MovementState newState)
-    {
-
-    }
-
-    void IStates.DoStateUpdate()
-    {
-        
-    }
-
-    void IStates.DoStateFixedUpdate()
-    {
-        
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-        
-    }
-}
-
-
-
-public interface ActionStates : IStates
-{
-
-}
-public class NoneActionState : ActionStates
-{
-    Humanoid IStates.Human => _human;
-    private Humanoid _human;
-    public NoneActionState(Humanoid human)
-    {
-        this._human = human;
-    }
-
-    void IStates.DoStateFixedUpdate()
-    {
-        
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-        
-    }
-
-    void IStates.DoStateUpdate()
-    {
-        
-    }
-
-    void IStates.Enter<ActionStates>(ActionStates oldState)
-    {
-        
-    }
-
-    void IStates.Exit<ActionStates>(ActionStates newState)
-    {
-        
-    }
-}
-public interface FightStates : ActionStates
-{
-
-}
-public class AttackingState : FightStates
-{
-    Humanoid IStates.Human => _human;
-    private Humanoid _human;
-    public AttackingState(Humanoid human)
-    {
-        this._human = human;
-    }
-
-    void IStates.DoStateFixedUpdate()
-    {
-
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-
-    }
-
-    void IStates.DoStateUpdate()
-    {
-
-    }
-
-    void IStates.Enter<ActionStates>(ActionStates oldState)
-    {
-
-    }
-
-    void IStates.Exit<ActionStates>(ActionStates newState)
-    {
-
-    }
-}
-public class BlockingState : FightStates
-{
-    Humanoid IStates.Human => _human;
-    private Humanoid _human;
-    public BlockingState(Humanoid human)
-    {
-        this._human = human;
-    }
-
-    void IStates.DoStateFixedUpdate()
-    {
-
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-
-    }
-
-    void IStates.DoStateUpdate()
-    {
-
-    }
-
-    void IStates.Enter<ActionStates>(ActionStates oldState)
-    {
-
-    }
-
-    void IStates.Exit<ActionStates>(ActionStates newState)
-    {
-
-    }
-}
-public class DodgingState : FightStates
+public class DodgingState : MovementStates
 {
     Humanoid IStates.Human => _human;
     private Humanoid _human;
@@ -311,6 +114,40 @@ public class DodgingState : FightStates
 
     void IStates.DoStateUpdate()
     {
+        //check for dodge attack
+    }
+
+    void IStates.Enter<ActionStates>(ActionStates oldState)
+    {
+
+    }
+
+    void IStates.Exit<ActionStates>(ActionStates newState)
+    {
+
+    }
+}
+public class UsingUIState : MovementStates
+{
+    Humanoid IStates.Human => _human;
+    private Humanoid _human;
+    public UsingUIState(Humanoid human)
+    {
+        this._human = human;
+    }
+
+    void IStates.DoStateFixedUpdate()
+    {
+
+    }
+
+    void IStates.DoStateLateUpdate()
+    {
+
+    }
+
+    void IStates.DoStateUpdate()
+    {
 
     }
 
@@ -324,7 +161,7 @@ public class DodgingState : FightStates
 
     }
 }
-public class StaggeredState : FightStates
+public class StaggeredState : MovementStates
 {
     Humanoid IStates.Human => _human;
     private Humanoid _human;
@@ -358,11 +195,96 @@ public class StaggeredState : FightStates
 
     }
 }
-public class PreparingThrowableState : FightStates
+
+
+public class UnconsciousState : MovementStates
+{
+    public Humanoid Human => _human;
+
+    private Humanoid _human;
+
+    private bool _isDead;
+
+    public UnconsciousState(Humanoid human)
+    {
+        this._human = human;
+    }
+    void IStates.Enter<MovementStates>(MovementStates oldState)
+    {
+        
+    }
+
+    void IStates.Exit<MovementStates>(MovementStates newState)
+    {
+        
+    }
+
+    void IStates.DoStateUpdate()
+    {
+        //Check For State Change
+    }
+
+    void IStates.DoStateFixedUpdate()
+    {
+        
+    }
+
+    void IStates.DoStateLateUpdate()
+    {
+        
+    }
+}
+
+
+
+
+
+public interface ActionStates : IStates
+{
+
+}
+public class NoneActionState : ActionStates
 {
     Humanoid IStates.Human => _human;
     private Humanoid _human;
-    public PreparingThrowableState(Humanoid human)
+    public NoneActionState(Humanoid human)
+    {
+        this._human = human;
+    }
+
+    void IStates.DoStateFixedUpdate()
+    {
+        
+    }
+
+    void IStates.DoStateLateUpdate()
+    {
+        
+    }
+
+    void IStates.DoStateUpdate()
+    {
+        if (!(_human._MovementState is LocomotionState)) return;
+
+        //check for attack block dodge jumpattack kick&punch
+    }
+
+    void IStates.Enter<ActionStates>(ActionStates oldState)
+    {
+        
+    }
+
+    void IStates.Exit<ActionStates>(ActionStates newState)
+    {
+        
+    }
+}
+
+public class AttackingState : ActionStates
+{
+    Humanoid IStates.Human => _human;
+    private Humanoid _human;
+    public AttackingState(Humanoid human)
     {
         this._human = human;
     }
@@ -379,7 +301,7 @@ public class PreparingThrowableState : FightStates
 
     void IStates.DoStateUpdate()
     {
-
+        if (_human._MovementState is UnconsciousState || _human._MovementState is StaggeredState) _human.ChangeActionState(new NoneActionState(_human));
     }
 
     void IStates.Enter<ActionStates>(ActionStates oldState)
@@ -392,17 +314,11 @@ public class PreparingThrowableState : FightStates
 
     }
 }
-
-public interface OtherActionStates : ActionStates
-{
-
-}
-
-public class UsingToolState : OtherActionStates
+public class BlockingState : ActionStates
 {
     Humanoid IStates.Human => _human;
     private Humanoid _human;
-    public UsingToolState(Humanoid human)
+    public BlockingState(Humanoid human)
     {
         this._human = human;
     }
@@ -419,7 +335,9 @@ public class UsingToolState : OtherActionStates
 
     void IStates.DoStateUpdate()
     {
+        if (_human._MovementState is UnconsciousState || _human._MovementState is StaggeredState) _human.ChangeActionState(new NoneActionState(_human));
 
+        //check for parry
     }
 
     void IStates.Enter<ActionStates>(ActionStates oldState)
@@ -432,11 +350,12 @@ public class UsingToolState : OtherActionStates
 
     }
 }
-public class CraftingState : OtherActionStates
+
+public class ThrowState : ActionStates
 {
     Humanoid IStates.Human => _human;
     private Humanoid _human;
-    public CraftingState(Humanoid human)
+    public ThrowState(Humanoid human)
     {
         this._human = human;
     }
@@ -453,7 +372,7 @@ public class CraftingState : OtherActionStates
 
     void IStates.DoStateUpdate()
     {
-
+        if (_human._MovementState is UnconsciousState || _human._MovementState is StaggeredState) _human.ChangeActionState(new NoneActionState(_human));
     }
 
     void IStates.Enter<ActionStates>(ActionStates oldState)
@@ -466,37 +385,4 @@ public class CraftingState : OtherActionStates
 
     }
 }
-public class BuildingState : OtherActionStates
-{
-    Humanoid IStates.Human => _human;
-    private Humanoid _human;
-    public BuildingState(Humanoid human)
-    {
-        this._human = human;
-    }
 
-    void IStates.DoStateFixedUpdate()
-    {
-
-    }
-
-    void IStates.DoStateLateUpdate()
-    {
-
-    }
-
-    void IStates.DoStateUpdate()
-    {
-
-    }
-
-    void IStates.Enter<ActionStates>(ActionStates oldState)
-    {
-
-    }
-
-    void IStates.Exit<ActionStates>(ActionStates newState)
-    {
-
-    }
-}

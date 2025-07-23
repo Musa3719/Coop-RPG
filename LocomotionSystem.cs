@@ -89,7 +89,6 @@ public class LocomotionSystem : MonoBehaviour
     public virtual void Sprint(bool value)
     {
         var sprintConditions = input.sqrMagnitude > 0.1f && isGrounded && !isStrafing;
-            //&& !(isStrafing && !strafeSpeed.walkByDefault && (horizontalSpeed >= 0.5 || horizontalSpeed <= -0.5 || verticalSpeed <= 0.1f)));
 
         if (value && sprintConditions)
         {
@@ -146,24 +145,14 @@ public class LocomotionSystem : MonoBehaviour
             _rayForLookPos = Camera.main.ScreenPointToRay(mousePosition);
             if (Physics.Raycast(_rayForLookPos, out RaycastHit hit, 200f))
             {
-
-                if (_rigidbody.linearVelocity.magnitude > 0.1f)
-                    LookAt(_lookAtForCam.transform.position, 8f / _stopAimCounterMax * _stopAimCounter);
-                else
-                    LookAt(_lookAtForCam.transform.position, 6f / _stopAimCounterMax * _stopAimCounter);
+                LookAt(_lookAtForCam.transform.position, 15f / _stopAimCounterMax * _stopAimCounter);
                 transform.localEulerAngles = new Vector3(0f, transform.localEulerAngles.y, 0f);
 
                 Vector3 distance = hit.point - transform.position;
                 distance.y = 0f;
                 Vector3 targetPos = transform.position + Vector3.ClampMagnitude(distance / 3.5f, 3.5f);
-                _lookAtForCam.transform.position = Vector3.Lerp(_lookAtForCam.transform.position, targetPos, Time.deltaTime * 1.5f);
+                _lookAtForCam.transform.position = targetPos;
 
-                /* Vector2 first = new Vector2(transform.forward.x, transform.forward.z);
-                 Vector2 second = new Vector2(targetPos.x - transform.position.x, targetPos.z - transform.position.z);
-                 float angle = Vector2.Angle(first, second);
-                 bool isRight = Vector2.SignedAngle(first, second) < 0 ? true : false;
-                 if (angle > 30f && _rigidbody.linearVelocity.magnitude < 0.1f)
-                     Rotate60Degrees(isRight, angle);*/
             }
 
         }
@@ -183,37 +172,7 @@ public class LocomotionSystem : MonoBehaviour
     {
         animator.CrossFade(animName, lerpTime);
     }
-    /*public void Rotate60Degrees(bool isRight, float angle)
-    {
-        if (_lastTimeRotated + 0.5f > Time.time) return;
 
-        _lastTimeRotated = Time.time;
-        if (isRight)
-        {
-            ChangeAnimation("TurnRightLocomotion");
-        }
-        else
-        {
-            ChangeAnimation("TurnLeftLocomotion");
-        }
-        GameManager.Instance.CoroutineCall(ref _rotateAroundCoroutine, RotateCoroutine(isRight, angle), GameManager.Instance);
-    }
-    private IEnumerator RotateCoroutine(bool isRight, float angle)
-    {
-        float startTime = Time.time;
-        float startY = transform.localEulerAngles.y;
-        while (startTime + angle / 250f > Time.time)
-        {
-            if (_rigidbody.linearVelocity.magnitude > 0.1f)
-            {
-                ChangeAnimation("Strafing Movement");
-                yield break;
-            }
-
-            transform.Rotate(isRight ? Vector3.up : -Vector3.up, Time.deltaTime * 60f * angle / 30f, Space.Self);
-            yield return null;
-        }
-    }*/
     #region Variables                
 
     public const float walkSpeed = 0.5f;
@@ -487,7 +446,8 @@ public class LocomotionSystem : MonoBehaviour
 
     public virtual void RotateToDirection(Vector3 direction, float rotationSpeed)
     {
-        if (!jumpAndRotate && !isGrounded) return;
+        if (!jumpAndRotate && !isGrounded || isStrafing) return;
+        
         direction.y = 0f;
         Vector3 desiredForward = Vector3.RotateTowards(transform.forward, direction.normalized, rotationSpeed * Time.deltaTime, .1f);
         Quaternion _newRotation = Quaternion.LookRotation(desiredForward);

@@ -6,7 +6,7 @@ using Unity.Collections;
 public enum ItemType
 {
     FoodItem,
-    MedicineItem,
+    PotionItem,
     HandItem,
     HeadGearItem,
     BodyGearItem,
@@ -26,6 +26,7 @@ public class Item : INetworkSerializable
 
     public int _Level;
     public float _Durability;
+    public float _MaxDurability;
 
     //Predefineds
 
@@ -62,24 +63,35 @@ public class Item : INetworkSerializable
             if (userHuman.GetComponent<Inventory>() == inventory && inventory.IsEquipped(this))
             {
                 if (!inventory.IsFull())
-                    UnEquip(inventory, inventory._Equipments.IndexOf(this));
+                    NetworkController._Instance.UnEquipRequestSend(this, inventory, inventory._Equipments.IndexOf(this));
             }
             else if (userHuman.GetComponent<Inventory>() == inventory && !inventory.IsEquipped(this))
             {
-                Equip(userHuman, inventory);
+                NetworkController._Instance.EquipRequestSend(this, userHuman, inventory);
             }
             else if (userHuman.GetComponent<Inventory>() != inventory)
             {
-                Equip(userHuman, inventory, inventory._Items.IndexOf(this));
+                NetworkController._Instance.EquipRequestSend(this, userHuman, inventory, inventory._Items.IndexOf(this));
+            }
+        }
+        else
+        {
+            if (_ItemType == ItemType.FoodItem)
+            {
+                //use food
+            }
+            else if (_ItemType == ItemType.PotionItem)
+            {
+                //use potion
             }
         }
     }
-    private int GetEquipIndex(Inventory inventory)
+    public int GetEquipIndex(Inventory inventory)
     {
         if (inventory.IsEquipped(this))
         {
             Debug.LogError("Item is equipped?");
-            return -1;
+            //return -1;
         }
 
         //is not equipped
@@ -125,49 +137,9 @@ public class Item : INetworkSerializable
         }
     }
 
-    public void Equip(Humanoid userHuman, Inventory losingInventory, int fromIndex = -1, int equipIndex = -1)
-    {
-        Inventory inventory = userHuman.GetComponent<Inventory>();
-        if (equipIndex == -1)
-            equipIndex = GetEquipIndex(inventory);
-        if (fromIndex == -1)
-            fromIndex = inventory._Items.IndexOf(this);
-
-        losingInventory.LoseItem(this, 1, fromIndex, false);
-
-        if (inventory._Equipments[equipIndex] != null)
-        {
-            if (inventory.IsFull())
-                losingInventory.GainItem(inventory._Equipments[equipIndex], inventory._Equipments[equipIndex]._Count, fromIndex, false);
-            inventory._Equipments[equipIndex].UnEquip(inventory, equipIndex, false);
-        }
-        losingInventory.SyncInventory();
-
-        _IsEquipped = true;
-        inventory._Equipments[equipIndex] = this;
-        inventory.CreateWorldInstanceForItemRpc(_WorldInstanceIndex, equipIndex, inventory.GetComponent<NetworkObject>().NetworkObjectId);
-
-        GameManager._Instance.CheckInventoryUpdate(inventory);
-        inventory.SyncInventory();
-    }
-    public void UnEquip(Inventory inventory, int fromIndex, bool isSync = true, bool isTaking = true)
-    {
-        inventory._Equipments[fromIndex] = null;
-        inventory.DestroyWorldInstanceForItemRpc(fromIndex, inventory.GetComponent<NetworkObject>().NetworkObjectId);
-
-        _IsEquipped = false;
-        if (isTaking)
-            inventory.TakeItemFromNothing(this, _Count, isSync);//also calls SyncInventory 
-        if (isSync)
-        {
-            inventory.SyncInventory();
-        }
-        GameManager._Instance.CheckInventoryUpdate(inventory);
-    }
 
     public void EquipForSync(Inventory inventory, int equipIndex)
     {
-        Debug.Log(inventory.gameObject.name + " " + equipIndex.ToString());
         if (!IsEquippableItemType() || equipIndex == -1)
         {
             Debug.LogError("Equip For Sync Error!");
@@ -190,7 +162,7 @@ public class Item : INetworkSerializable
         {
             case ItemType.FoodItem:
                 return false;
-            case ItemType.MedicineItem:
+            case ItemType.PotionItem:
                 return false;
             case ItemType.HandItem:
                 return true;
@@ -234,6 +206,7 @@ public class Item : INetworkSerializable
         serializer.SerializeValue(ref _WorldInstanceIndex);
         serializer.SerializeValue(ref _Level);
         serializer.SerializeValue(ref _Durability);
+        serializer.SerializeValue(ref _MaxDurability);
     }
 }
 

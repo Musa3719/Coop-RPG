@@ -9,10 +9,6 @@ public static class SaveSystemHandler
 {
     private static string SavePath(int index) => Path.Combine(Application.persistentDataPath, "Save" + index.ToString() + ".json");
 
-    public static void SaveOnePlayerDataWhenDisconnect(ulong playerID)
-    {
-        SaveOnePlayer(LoadGameData(GameManager._Instance._LastLoadedGameIndex), GameManager._Instance._LastLoadedGameIndex, playerID, GameManager._Instance._Players[playerID], true);
-    }
     public static void SaveGame(int index)
     {
         if (!NetworkManager.Singleton.IsServer) return;
@@ -56,14 +52,18 @@ public static class SaveSystemHandler
         }
 
         //add every player data here
-        foreach (var player in GameManager._Instance._Players)
+        foreach (var player in NetworkController._Instance._Players)
+        {
+            SaveOnePlayer(data, GameManager._Instance._LastLoadedGameIndex, player.Key, player.Value);
+        }
+        foreach (var player in NetworkController._Instance._DisconnectedPlayers)
         {
             SaveOnePlayer(data, GameManager._Instance._LastLoadedGameIndex, player.Key, player.Value);
         }
 
         SaveGameData(index, data);
     }
-    public static void SaveOnePlayer(SavedDataBlock data, int saveIndex, ulong id, GameObject player, bool isWritingToSaveFile = false)
+    public static void SaveOnePlayer(SavedDataBlock data, int saveIndex, int id, GameObject player)
     {
         PlayerData playerData = data._PlayerData.GetPlayerData(id);
 
@@ -74,13 +74,11 @@ public static class SaveSystemHandler
         }
 
         //add player data here
+        //save humanoid data
 
         playerData._Position = player.transform.position;
         playerData._EulerAngleY = player.transform.localEulerAngles.y;
         playerData._Inventory = new InventoryWrapper(player.GetComponent<Humanoid>()._Inventory._Items, player.GetComponent<Humanoid>()._Inventory._Equipments);
-
-        if (isWritingToSaveFile)
-            SaveGameData(saveIndex, data);
     }
 
     public static void LoadGame(int index)
@@ -88,7 +86,7 @@ public static class SaveSystemHandler
         if (!NetworkManager.Singleton.IsServer) return;
 
         GameManager._Instance._LastLoadedGameIndex = index;
-        GameManager._Instance.CoroutineCall(ref NetworkMethods._Instance._LoadGameCoroutine, NetworkMethods._Instance.LoadGameCoroutine(index), NetworkMethods._Instance);
+        GameManager._Instance.CoroutineCall(ref NetworkController._Instance._LoadGameCoroutine, NetworkController._Instance.LoadGameCoroutine(index), NetworkController._Instance);
     }
 
 
@@ -132,12 +130,12 @@ public class GameData
 [System.Serializable]
 public class PlayerData
 {
-    public PlayerData(ulong id)
+    public PlayerData(int id)
     {
         _NetworkID = id;
     }
     //inventory, hollow level, equipment, uma data
-    public ulong _NetworkID;
+    public int _NetworkID;
     public Vector3 _Position;
     public float _EulerAngleY;
     public InventoryWrapper _Inventory;
@@ -153,8 +151,8 @@ public class InventoryWrapper
 
     public InventoryWrapper(Item[] items, Item[] equipments)
     {
-        _Items = items;
-        _Equipments = equipments;
+        _Items = items.CopyArray();
+        _Equipments = equipments.CopyArray();
     }
 }
 

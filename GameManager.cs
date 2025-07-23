@@ -25,11 +25,10 @@ public class GameManager : MonoBehaviour
     public GameObject _BookScreen { get; private set; }
     public GameObject _LoadingScreen { get; private set; }
     public GameObject _HoldingItemUI { get; private set; }
+    public GameObject _ItemPopupUI { get; private set; }
 
     public InputActionAsset _InputActions;
 
-    private Dictionary<ulong, GameObject> _players;
-    public Dictionary<ulong, GameObject> _Players { get { if (_players.Count == 0) SetPlayersFromConnection(); return _players; } private set { _players = value; } }//ulong is client id
 
     public List<GameObject> _AllNetworkPrefabs;
     public List<Item> _AllItems;
@@ -46,6 +45,7 @@ public class GameManager : MonoBehaviour
 
     public bool _IsGameStopped { get; private set; }
     public bool _IsGameLoading { get; set; }
+    public int _SaveIndex { get; set; }
     public int _LevelIndex { get; private set; }
     public int _LastLoadedGameIndex { get; set; }
 
@@ -56,11 +56,13 @@ public class GameManager : MonoBehaviour
     public EventSystem _EventSystem { get; set; }
 
     private Coroutine _slowTimeCoroutine;
+    private Color _uniqueItemColor;
 
     private void Awake()
     {
         Application.SetStackTraceLogType(LogType.Error, StackTraceLogType.None);
         _Instance = this;
+        _uniqueItemColor = new Color(1f, 0.9f, 0.6f);
         _MainCamera = Camera.main.gameObject;
         _CinemachineCamera = FindAnyObjectByType<CinemachineCamera>();
         //Application.targetFrameRate = 30;
@@ -75,12 +77,12 @@ public class GameManager : MonoBehaviour
             _BookScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("BookScreen").gameObject;
             _InventoryScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("OwnInventory").gameObject;
             _OtherInventoryScreen = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("OtherInventory").gameObject;
-            _HoldingItemUI= GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("HoldingItemUI").gameObject;
+            _HoldingItemUI = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("HoldingItemUI").gameObject;
+            _ItemPopupUI = GameObject.FindGameObjectWithTag("UI").transform.Find("InGameScreen").Find("Inventories").Find("Popup").gameObject;
             _Raycaster = GameObject.Find("UI").GetComponent<GraphicRaycaster>();
             _EventSystem = FindFirstObjectByType<EventSystem>();
-            //SaveSystemHandler.LoadGame(index)
         }
-        _Players = new Dictionary<ulong, GameObject>();
+        
         _AllStaticInventories = new List<GameObject>();
     }
 
@@ -97,11 +99,11 @@ public class GameManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.T))
         {
-            NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[2].Copy());
+            NetworkController._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[2].Copy(),1);
         }
         if (Input.GetKeyDown(KeyCode.Y))
         {
-            NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[0].Copy());
+            NetworkController._Instance.GetOwnPlayerObject().GetComponent<Inventory>().TakeItemFromNothing(GameManager._Instance._AllItems[0].Copy(),1);
         }
 
         if (Input.GetKeyDown(KeyCode.L)) { SaveSystemHandler.LoadGame(0); }
@@ -153,26 +155,6 @@ public class GameManager : MonoBehaviour
             {
                 if (_OptionsScreen.activeInHierarchy)
                     CloseOptionsScreen();
-            }
-        }
-    }
-
-
-
-    public void SetPlayersFromConnection()
-    {
-        _players.Clear();
-        var playerObjects = GameObject.FindGameObjectsWithTag("Player");
-        foreach (var id in NetworkMethods._Instance.NetworkManager.ConnectedClientsIds)
-        {
-            foreach (var player in playerObjects)
-            {
-                if (player.GetComponent<NetworkObject>().OwnerClientId == id)
-                {
-                    if (!_players.ContainsKey(player.GetComponent<NetworkObject>().OwnerClientId))
-                        _players.Add(player.GetComponent<NetworkObject>().OwnerClientId, player);
-                    continue;
-                }
             }
         }
     }
@@ -347,10 +329,33 @@ public class GameManager : MonoBehaviour
         _BookScreen.SetActive(isOpening);
     }
 
-
+    public void ItemPopupFirstButtonClicked()
+    {
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().ItemPopupFirstButtonClicked();
+        _ItemPopupUI.SetActive(false);
+    }
+    public void ItemPopupSecondButtonClicked()
+    {
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().ItemPopupSecondButtonClicked();
+        _ItemPopupUI.SetActive(false);
+    }
+    public void ItemPopupThirdButtonClicked()
+    {
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().ItemPopupThirdButtonClicked();
+        _ItemPopupUI.SetActive(false);
+    }
+    public void ItemPopupFourthButtonClicked()
+    {
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().ItemPopupFourthButtonClicked();
+        _ItemPopupUI.SetActive(false);
+    }
+    public void UpdateSliderCount(float number)
+    {
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateSliderCount(number);
+    }
     public Sprite GetItemSprite(Item item)
     {
-        int index = NetworkMethods._Instance.GetIndexByItem(item);
+        int index = NetworkController._Instance.GetIndexByItem(item);
         return GameManager._Instance._AllItemIcons[index];
     }
 
@@ -370,7 +375,12 @@ public class GameManager : MonoBehaviour
     {
         if (isOpening)
         {
-            UpdateInventoryScreen(true, NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<Inventory>());
+            UpdateInventoryScreen(true, NetworkController._Instance.GetOwnPlayerObject().GetComponent<Inventory>());
+        }
+        else
+        {
+            NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().DisableHolding(false);
+            _ItemPopupUI.SetActive(false);
         }
 
         _InventoryScreen.SetActive(isOpening);
@@ -411,7 +421,9 @@ public class GameManager : MonoBehaviour
             _OtherInventoryObjectID = inventory.NetworkObjectId;
             UpdateInventorySlots(inventory, _OtherInventoryScreen.transform.Find("InventorySlots"));
         }
-        NetworkMethods._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateHoldingSprite();
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateHoldingSprite();
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateItemPopup();
+        NetworkController._Instance.GetOwnPlayerObject().GetComponent<PlayerInputHandler>().UpdateSliderCount(_ItemPopupUI.transform.Find("Slider").GetComponent<Slider>().value);
     }
     private void UpdateInventorySlots(Inventory inventory, Transform inventoryScreen)
     {
@@ -443,6 +455,7 @@ public class GameManager : MonoBehaviour
         if (tempArray[i] == null)
         {
             child.GetComponent<Image>().sprite = isEquipments ? GetBackgroundIcon(i) : _ItemBackgroundIcon;
+            child.GetComponent<Image>().color = Color.white;
             child.Find("CountText").gameObject.SetActive(false);
             child.Find("WeaponUI").gameObject.SetActive(false);
             child.Find("ArmorLevelText").gameObject.SetActive(false);
@@ -452,9 +465,15 @@ public class GameManager : MonoBehaviour
             child.GetComponent<Image>().sprite = GetItemSprite(tempArray[i]);
 
             if (tempArray[i].IsUniqueItemType())
+            {
                 child.Find("CountText").gameObject.SetActive(false);
+                child.GetComponent<Image>().color = _uniqueItemColor;
+            }
             else
+            {
                 child.Find("CountText").gameObject.SetActive(true);
+                child.GetComponent<Image>().color = Color.white;
+            }
 
             if (tempArray[i]._ItemType == ItemType.HandItem)
                 child.Find("WeaponUI").gameObject.SetActive(true);
